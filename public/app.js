@@ -96,15 +96,20 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Fetch Music Catalogue (Jamendo API via Backend)
-    async function loadMusicCatalogue() {
+    // Fetch Music Catalogue
+    async function loadMusicCatalogue(searchQuery = '') {
         try {
-            const res = await fetch('/api/music');
+            let url = '/api/music';
+            if (searchQuery) url += `?search=${encodeURIComponent(searchQuery)}`;
+
+            const res = await fetch(url);
             const data = await res.json();
             if (data && data.results) {
                 allTracks = data.results;
-                renderHomeSections();
-                renderLibrary('all-songs');
+                if (!searchQuery) {
+                    renderHomeSections();
+                    renderLibrary('all-songs');
+                }
             }
         } catch (err) {
             console.error('Failed to load catalogue:', err);
@@ -273,29 +278,42 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Search System
+    // Dynamic Live Search System
     const searchInput = document.getElementById('search-input');
     const clearSearchBtn = document.getElementById('clear-search');
     const searchResultsGrid = document.getElementById('search-results-grid');
 
+    let searchTimeout;
     searchInput.addEventListener('input', (e) => {
-        const query = e.target.value.toLowerCase();
+        const query = e.target.value.trim();
         if (query.length > 0) {
             clearSearchBtn.classList.remove('hidden');
         } else {
             clearSearchBtn.classList.add('hidden');
+            searchResultsGrid.innerHTML = '';
+            return;
         }
 
-        const filtered = allTracks.filter(t => 
-            t.name.toLowerCase().includes(query) || 
-            t.artist_name.toLowerCase().includes(query)
-        );
-
-        searchResultsGrid.innerHTML = '';
-        filtered.forEach(track => {
-            const globalIdx = allTracks.findIndex(t => t.id === track.id);
-            searchResultsGrid.appendChild(createMediaCard(track, globalIdx));
-        });
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(async () => {
+            try {
+                const res = await fetch(`/api/music?search=${encodeURIComponent(query)}`);
+                const data = await res.json();
+                
+                searchResultsGrid.innerHTML = '';
+                if (data && data.results && data.results.length > 0) {
+                    // Update global track pool so searched songs can play seamlessly
+                    allTracks = data.results;
+                    data.results.forEach((track, idx) => {
+                        searchResultsGrid.appendChild(createMediaCard(track, idx));
+                    });
+                } else {
+                    searchResultsGrid.innerHTML = `<p style="color:var(--text-sub);">No tracks found for "${query}"</p>`;
+                }
+            } catch (err) {
+                console.error('Search error:', err);
+            }
+        }, 400); // 400ms debounce
     });
 
     clearSearchBtn.addEventListener('click', () => {
@@ -315,6 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const res = await fetch(`/api/music?genre=${genre}`);
                 const data = await res.json();
                 if (data && data.results) {
+                    allTracks = data.results;
                     searchResultsGrid.innerHTML = '';
                     data.results.forEach((track, idx) => {
                         searchResultsGrid.appendChild(createMediaCard(track, idx));
@@ -375,10 +394,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderPlaylistsSidebar() {
         const playlistNavList = document.getElementById('playlist-nav-list');
-        // Keep liked songs as first item
         playlistNavList.innerHTML = `<li data-target="liked-view" class="liked-songs-nav"><i class="fa-solid fa-heart pulse"></i> Liked Songs</li>`;
         
-        // Re-bind liked songs navigation click
         playlistNavList.querySelector('.liked-songs-nav').addEventListener('click', () => {
             document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
             document.getElementById('liked-view').classList.add('active');

@@ -1,5 +1,4 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // State Management
     let allTracks = [];
     let currentTrackIndex = -1;
     let isPlaying = false;
@@ -9,7 +8,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let customPlaylists = JSON.parse(localStorage.getItem('sonora_playlists')) || [];
     let activePlaylistId = null;
 
-    // DOM Elements
     const loginOverlay = document.getElementById('login-overlay');
     const appContainer = document.getElementById('app-container');
     const loginForm = document.getElementById('login-form');
@@ -17,7 +15,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const logoutBtn = document.getElementById('logout-btn');
     const audioElement = document.getElementById('audio-element');
 
-    // Player UI
     const playPauseBtn = document.getElementById('control-play-pause');
     const prevBtn = document.getElementById('control-prev');
     const nextBtn = document.getElementById('control-next');
@@ -25,7 +22,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const repeatBtn = document.getElementById('control-repeat');
     const seekBar = document.getElementById('seek-bar');
     const volumeBar = document.getElementById('volume-bar');
-    const muteBtn = document.getElementById('control-mute');
     const currentTimeEl = document.getElementById('current-time');
     const totalDurationEl = document.getElementById('total-duration');
     const playerImg = document.getElementById('player-img');
@@ -33,20 +29,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const playerArtist = document.getElementById('player-artist');
     const playerLikeBtn = document.getElementById('player-like-btn');
 
-    // Check Authentication Status on Load
     fetch('/api/check-auth')
         .then(res => res.json())
         .then(data => {
-            if (data.authenticated) {
-                unlockApp();
-            }
+            if (data.authenticated) unlockApp();
         });
 
-    // Login Form Submission
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const password = document.getElementById('shared-password').value;
-        
         try {
             const res = await fetch('/api/login', {
                 method: 'POST',
@@ -54,7 +45,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ password })
             });
             const data = await res.json();
-            
             if (data.success) {
                 unlockApp();
             } else {
@@ -65,7 +55,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Logout
     logoutBtn.addEventListener('click', async () => {
         await fetch('/api/logout', { method: 'POST' });
         location.reload();
@@ -78,7 +67,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderPlaylistsSidebar();
     }
 
-    // Navigation System
     const navItems = document.querySelectorAll('.sidebar-menu li, .sidebar-playlists ul li');
     navItems.forEach(item => {
         item.addEventListener('click', () => {
@@ -96,27 +84,20 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Fetch Music Catalogue
-    async function loadMusicCatalogue(searchQuery = '') {
+    async function loadMusicCatalogue() {
         try {
-            let url = '/api/music';
-            if (searchQuery) url += `?search=${encodeURIComponent(searchQuery)}`;
-
-            const res = await fetch(url);
+            const res = await fetch('/api/music');
             const data = await res.json();
             if (data && data.results) {
                 allTracks = data.results;
-                if (!searchQuery) {
-                    renderHomeSections();
-                    renderLibrary('all-songs');
-                }
+                renderHomeSections();
+                renderLibrary('all-songs');
             }
         } catch (err) {
             console.error('Failed to load catalogue:', err);
         }
     }
 
-    // Render Home Sections
     function renderHomeSections() {
         const trendingGrid = document.getElementById('trending-grid');
         const recentGrid = document.getElementById('recent-grid');
@@ -133,7 +114,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Create Media Card Component
     function createMediaCard(track, globalIndex) {
         const card = document.createElement('div');
         card.className = 'media-card';
@@ -142,13 +122,10 @@ document.addEventListener('DOMContentLoaded', () => {
             <h3>${track.name}</h3>
             <p>${track.artist_name}</p>
         `;
-        card.addEventListener('click', () => {
-            playTrack(globalIndex);
-        });
+        card.addEventListener('click', () => playTrack(globalIndex));
         return card;
     }
 
-    // Playback System
     function playTrack(index) {
         if (index < 0 || index >= allTracks.length) return;
         currentTrackIndex = index;
@@ -205,7 +182,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Audio Progress & Seek
     audioElement.addEventListener('timeupdate', () => {
         if (audioElement.duration) {
             const progress = (audioElement.currentTime / audioElement.duration) * 100;
@@ -231,7 +207,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
     }
 
-    // Liked Songs Feature
     playerLikeBtn.addEventListener('click', () => {
         if (currentTrackIndex === -1) return;
         const track = allTracks[currentTrackIndex];
@@ -278,7 +253,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Dynamic Live Search System
+    // Live Server Search System
     const searchInput = document.getElementById('search-input');
     const clearSearchBtn = document.getElementById('clear-search');
     const searchResultsGrid = document.getElementById('search-results-grid');
@@ -302,7 +277,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 searchResultsGrid.innerHTML = '';
                 if (data && data.results && data.results.length > 0) {
-                    // Update global track pool so searched songs can play seamlessly
                     allTracks = data.results;
                     data.results.forEach((track, idx) => {
                         searchResultsGrid.appendChild(createMediaCard(track, idx));
@@ -313,7 +287,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (err) {
                 console.error('Search error:', err);
             }
-        }, 400); // 400ms debounce
+        }, 400);
     });
 
     clearSearchBtn.addEventListener('click', () => {
@@ -322,7 +296,6 @@ document.addEventListener('DOMContentLoaded', () => {
         searchResultsGrid.innerHTML = '';
     });
 
-    // Genre Filter Pills
     document.querySelectorAll('.genre-pill').forEach(pill => {
         pill.addEventListener('click', async () => {
             document.querySelectorAll('.genre-pill').forEach(p => p.classList.remove('active'));
@@ -345,7 +318,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Library Rendering
     function renderLibrary(tab) {
         const libContent = document.getElementById('library-content');
         libContent.innerHTML = '';
@@ -377,7 +349,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Playlist Management
     document.getElementById('create-playlist-btn').addEventListener('click', () => {
         const name = prompt('Enter custom playlist name:');
         if (name) {

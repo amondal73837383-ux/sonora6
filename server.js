@@ -31,7 +31,7 @@ app.use(session({
 // Rate Limiter for Login
 const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 10, // Limit each IP to 10 login requests per windowMs
+    max: 10,
     message: { error: 'Too many login attempts, please try again after 15 minutes.' }
 });
 
@@ -73,17 +73,22 @@ app.get('/api/check-auth', (req, res) => {
     res.json({ authenticated: false });
 });
 
-// Jamendo Proxy / Catalogue API Endpoint
+// Jamendo Dynamic Search & Catalogue API Endpoint
 app.get('/api/music', requireAuth, async (req, res) => {
     try {
         const query = req.query.search || '';
         const genre = req.query.genre || '';
         const clientId = process.env.JAMENDO_CLIENT_ID || '';
         
-        // Fetch from Jamendo API
-        let url = `https://api.jamendo.com/v3.0/tracks/?client_id=${clientId}&format=json&limit=50&audioformat=mp32`;
-        if (query) url += `&search=${encodeURIComponent(query)}`;
-        if (genre) url += `&tags=${encodeURIComponent(genre)}`;
+        // Build API URL based on user input
+        let url = `https://api.jamendo.com/v3.0/tracks/?client_id=${clientId}&format=json&limit=100&order=popularity_total&audioformat=mp32`;
+        
+        if (query) {
+            url += `&search=${encodeURIComponent(query)}`;
+        }
+        if (genre) {
+            url += `&tags=${encodeURIComponent(genre)}`;
+        }
 
         const response = await fetch(url);
         const data = await response.json();
@@ -95,11 +100,11 @@ app.get('/api/music', requireAuth, async (req, res) => {
     }
 });
 
-// Fallback for SPA routing / Protection of internal pages
+// Fallback for SPA routing
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.listen(PORT, () => {
-    console.log(`Sonora server running on http://localhost:${PORT}`);
+    console.log(`Sonora server running on port ${PORT}`);
 });
